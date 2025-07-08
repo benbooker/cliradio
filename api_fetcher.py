@@ -1,6 +1,4 @@
-import socket
-import random
-import urllib.request
+import requests
 import json 
 
 #TODO: error handling for when an endpoint is down
@@ -11,33 +9,20 @@ import json
 
 class StationFetcher:
 
-    BASE_URLS = ['https://fi1.api.radio-browser.info', 'https://de1.api.radio-browser.info', 'https://de2.api.radio-browser.info']
+    SERVERS = ['https://fi1.api.radio-browser.info', 'https://de1.api.radio-browser.info', 'https://de2.api.radio-browser.info']
 
-    def fetch_json(self):
-        endpoint = self.BASE_URLS[0] + '/json/stations'
-
-        req = urllib.request.Request(endpoint)
-        req.add_header('User-Agent', 'cliradio/0.0.1')
-
-        data = json.load(urllib.request.urlopen(req))
-        print(data)
-
-
-    def fetch_by_name(self, query):
-        endpoint = self.BASE_URLS[0] + '/json/stations/search?name=' + query
-        print(endpoint)
-
-        req = urllib.request.Request(endpoint)
-        req.add_header('User-Agent', 'cliradio/0.0.1')
-
-        data = json.load(urllib.request.urlopen(req))
-        # print(data)
-        # print(json.dumps(data, indent = 2))
-        
-        results = [Station.from_json(item) for item in data]
-
-        return (results)
-        
+    def stations_from_search(self, query):
+        for server in self.SERVERS:
+            try:
+                url = server + '/json/stations/search?name=' + query
+                response = requests.get(url, headers={'User-Agent':'cliradio/0.0.1'})
+                data = response.json()
+                print(json.dumps(data))
+                return [Station.construct_from_json(item) for item in data] 
+            except requests.RequestException:
+                continue
+        print("Unable to reach radio-browser servers.")
+        return []
 
 
 
@@ -49,11 +34,13 @@ class Station:
         self.url = url
         self.quality = quality
 
-    def __repr__(self):
-        return(f"{self.name} | {self.country} | {self.quality}")
+    def __str__(self):
+        name = self.name  if self.name <= 55 else self.name[:55] + "..."
+        return name
+
 
     @staticmethod
-    def from_json(data):
+    def construct_from_json(data):
         return Station(
             data.get('name'),
             data.get('country'),
